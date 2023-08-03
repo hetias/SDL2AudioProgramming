@@ -12,7 +12,10 @@
 //
 
 double sine_wave(float frequency, double time){
-  return sin(frequency * 2.0 * M_PI * time);
+  //frequency * times gives a value in herz
+  //we multiply it by 2*M_PI so sin can work with it properly
+  
+  return sin(2.0 * M_PI * frequency * time);
 }
 
 double square_wave(float frequency, double time){
@@ -22,8 +25,21 @@ double square_wave(float frequency, double time){
   return x;
 }
 
+double triangle_wave(float frequency, double time){
+  double x = sine_wave(frequency, time);
+  x = asin(x);
+
+  return x;
+}
+
 double sawtooth_wave(float frequency, double time){
   //TODO:: The whole function...
+
+  double x = sine_wave(frequency, time);
+  x = fmod(1.0, x);
+
+  printf("%f\n", x);
+  return x;
 }
 
 void audio_callback(void* userdata, uint8_t* stream, int len){
@@ -31,7 +47,7 @@ void audio_callback(void* userdata, uint8_t* stream, int len){
     uint64_t* samples_played = (uint64_t*)userdata;
     float* fstream = (float*)(stream);
     static const float volume = 0.2;
-    static const float frequency = 200.0;
+    static const float frequency = 440.0; //this would represent the "note"
 
     for(int sid = 0; sid < (len / 8); ++sid)
     {
@@ -40,13 +56,18 @@ void audio_callback(void* userdata, uint8_t* stream, int len){
         //TODO:: square is louder than sine
         //that's probably because it's hardcoded to be 1.0 or -1.0
         //guess a way to fix that...
-        
-        
+          
         //fstream[2 * sid + 0] = volume * square_wave(frequency, time);
         //fstream[2 * sid + 1] = volume * square_wave(frequency, time);
 
-        fstream[2 * sid + 0] = volume * sine_wave(frequency, time);
-        fstream[2 * sid + 1] = volume * sine_wave(frequency, time);
+        //fstream[2 * sid + 0] = volume * sine_wave(frequency, time);
+        //fstream[2 * sid + 1] = volume * sine_wave(frequency, time);
+
+        //fstream[2 * sid + 0] = volume * triangle_wave(frequency, time);
+        //fstream[2 * sid + 1] = volume * triangle_wave(frequency, time);
+
+        fstream[2 * sid + 0] = volume * sawtooth_wave(frequency, time);
+        fstream[2 * sid + 1] = volume * sawtooth_wave(frequency, time);
 
     }
     
