@@ -5,43 +5,56 @@
 
 #define WINDOW_WIDTH 600
 #define WINDOW_HEIGHT 600
+#define AUDIO_FILE "audio.wav"
 
-Uint8* wav_buff = NULL;
-Uint8* wav_pos = NULL;
-Uint32 wav_len = 0;
+typedef struct{
+  Uint8* data;
+  Uint8* pos;
+  Uint32 lenght;
+  SDL_AudioSpec spec;
+}audioInfo;
 
-void audio_callback(void* userdata, uint8_t* stream, int len){
-  /* audio data here is interpreted as 16 bits signed integers.
-     This is because that what my hardware * surprisingly * manages.
-     You may have to change this to work on yours to any of the supported
-     audio format by sdl
-     https://wiki.libsdl.org/SDL2/SDL_AudioFormat
-   */
-  
+SDL_Window* window = NULL; 
+SDL_Renderer* renderer = NULL;
+SDL_AudioDeviceID audio_device_id = -1;
+
+audioInfo file = {0};
+
+/* audio data here is interpreted as 16 bits signed integers.
+   This is because that what my hardware * surprisingly * manages.
+   You may have to change this to work on yours to any of the supported
+   audio format by sdl
+   https://wiki.libsdl.org/SDL2/SDL_AudioFormat
+   and more than probably, the audio that you use may be another factor
+   to consider.
+
+   TODO:: MAKE A DYNAMIC KIND OF CAST DEPENDING ON FILE.SPEC.FORMAT
+*/
+void audio_callback(void* userdata, uint8_t* stream, int buff_len){
+
   Sint16* istream = (Sint16*)stream;
 
-  SDL_memset(stream, 0, len);
-  SDL_memcpy(stream, wav_buff, len);
+  SDL_memset(stream, 0, buff_len);
+  SDL_memcpy(stream, file.pos, buff_len);
 
-  for(int i = 0; i < (len / 4); ++i)
+  for(int i = 0; i < (buff_len / 4); ++i)
   {
-    istream[2 * i + 0] *= 0.1;
-    istream[2 * i + 1] *= 0.1;
+    /* istream[2 * i + 0] *= 0.1; //channel 1 */
+    /* istream[2 * i + 1] *= 0.1; //channel 2 */
   }
   
-  wav_pos += len / 4;
-  wav_len -= len;
+  file.pos += buff_len;
+  file.lenght -= buff_len;
 }
 
-int main(int argc, char* argv[]){
+int initialize_sdl(){
   if(SDL_Init(SDL_INIT_EVERYTHING) < 0){
     printf("Error initializing SDL: %s\n", SDL_GetError());
     return -1;
   }
 
-  SDL_Window* window = NULL;
   window = SDL_CreateWindow(
-      "SDL Tone Generator",
+      "SDL Audio",
       SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
       WINDOW_WIDTH, WINDOW_HEIGHT,
       SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
@@ -52,7 +65,6 @@ int main(int argc, char* argv[]){
     return -1;
   }
 
-  SDL_Renderer* renderer = NULL;
   renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
   if(renderer == NULL){
     printf("Error creating SDL window: %s\n",SDL_GetError());
@@ -60,50 +72,72 @@ int main(int argc, char* argv[]){
     return -1;
   }
 
-  SDL_AudioSpec audio_spec_want;
-  SDL_memset(&audio_spec_want, 0, sizeof(audio_spec_want));
+  return 0;
+}
 
-  audio_spec_want.freq     = 44100;
-  audio_spec_want.format   = AUDIO_F32SYS;
-  audio_spec_want.channels = 2;
-  audio_spec_want.samples  = 1024;
-  audio_spec_want.callback = audio_callback;
-  audio_spec_want.userdata = NULL;
+void close_sdl(){
+  SDL_DestroyWindow(window);
+  SDL_CloseAudioDevice(audio_device_id);
+  SDL_Quit();
+}
 
-  SDL_LoadWAV("audio.wav", &audio_spec_want, &wav_buff, &wav_len);
+int open_audio_file(){
+  SDL_LoadWAV( AUDIO_FILE, &file.spec, &file.data, &file.lenght);
 
-  if(!wav_buff){
+  if(!file.data){
     printf("Error when loading audio}\n");
-
-    SDL_DestroyRenderer(renderer);
-    SDL_DestroyWindow(window);
-    SDL_Quit();
     return -1;
   }
 
-  SDL_AudioDeviceID audio_device_id = SDL_OpenAudioDevice(
-      NULL, 0,
-      &audio_spec_want, NULL,
+  file.pos = file.data;
+  file.spec.callback = audio_callback;
+  return 0;
+}
+
+void write_spec(){
+  printf("frequency: %d\n", file.spec.freq);
+  printf("format: %d\n", file.spec.format);
+  printf("channels: %d\n", file.spec.channels);
+  printf("samples: %d\n", file.spec.samples);
+
+  printf("Audio bit size: %d\n", SDL_AUDIO_BITSIZE(file.spec.format));
+  
+  (SDL_AUDIO_ISFLOAT(file.spec.format)) ? printf("Audio format is float\n") : printf("Audio format is int\n");
+
+  (SDL_AUDIO_ISSIGNED(file.spec.format)) ? printf("Audio format is signed\n") : printf("Audio format is unsigned\n");
+
+}
+
+int open_audio(){
+  audio_device_id = SDL_OpenAudioDevice(
+      NULL,
+      0,
+      &file.spec,
+      NULL,
       SDL_AUDIO_ALLOW_FORMAT_CHANGE);
 
-  if(audio_spec_want.format == AUDIO_S32MSB){
-    printf("Audio format audio\n");
-  }
-  
   if(audio_device_id < 0){
     printf( "Error creating SDL audio device: %s\n", SDL_GetError());
-    SDL_Quit();
     return -1;
   }
 
+  return 0;
+}
+
+int main(int argc, char* argv[]){
+  if(initialize_sdl() < 0)
+    return -1;
+
+  if(open_audio_file() < 0)
+    return -1;
+
+  if(open_audio() < 0)
+    return -1;
+    
+  write_spec();
+
   SDL_PauseAudioDevice(audio_device_id, 0);
-
-  printf("Audio bit size: %d\n", SDL_AUDIO_BITSIZE(audio_spec_want.format));
   
-  (SDL_AUDIO_ISFLOAT(audio_spec_want.format)) ? printf("Audio format is float\n") : printf("Audio format is int\n");
-
-  (SDL_AUDIO_ISSIGNED(audio_spec_want.format)) ? printf("Audio format is signed\n") : printf("Audio format is unsigned\n");
-
   bool running = true;
   while(running){
 
@@ -120,10 +154,7 @@ int main(int argc, char* argv[]){
     SDL_RenderPresent(renderer);
   }
 
-  SDL_DestroyWindow(window);
-  SDL_CloseAudioDevice(audio_device_id);
-  SDL_Quit();
-    
+  close_sdl();    
   return 0;
 }
 

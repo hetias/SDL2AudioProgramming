@@ -22,7 +22,7 @@ OBJ_NAME = main
 all: $(OBJS)
 	$(CC) $(OBJS) -g $(INCLUDE_PATHS) $(LIBRARY_PATHS) $(LINKER_FLAGS) -o $(OBJ_NAME)
 
-main_wav.o: main_wav.c
+main.o: main_wav.c
 	$(CC) $(INCLUDE_PATHS) -c main_wav.c
 
 clean:

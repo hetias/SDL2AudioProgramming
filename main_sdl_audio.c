@@ -66,8 +66,8 @@ void audio_callback(void* userdata, uint8_t* stream, int len){
         //fstream[2 * sid + 0] = volume * triangle_wave(frequency, time);
         //fstream[2 * sid + 1] = volume * triangle_wave(frequency, time);
 
-        fstream[2 * sid + 0] = volume * sawtooth_wave(frequency, time);
-        fstream[2 * sid + 1] = volume * sawtooth_wave(frequency, time);
+        //fstream[2 * sid + 0] = volume * sawtooth_wave(frequency, time);
+        //fstream[2 * sid + 1] = volume * sawtooth_wave(frequency, time);
 
     }
     
